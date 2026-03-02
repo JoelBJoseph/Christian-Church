@@ -40,7 +40,7 @@ export default function HomePage() {
           transition={{ duration: 1.2, ease: "easeOut" }}
         >
           <Image
-            src="/images/hero-church.jpg"
+            src="/images/worship2.jpg"
             alt="Christian Church sanctuary"
             fill
             className="object-cover"
@@ -72,7 +72,7 @@ export default function HomePage() {
           <div className="flex justify-center">
             <div className="relative w-full max-w-sm aspect-3/4 rounded-2xl overflow-hidden">
               <Image
-                src="/images/nature-welcome.jpg"
+                src="/images/church1.jpg"
                 alt="Peaceful nature scene"
                 fill
                 className="object-cover"
@@ -128,7 +128,7 @@ export default function HomePage() {
         <ScrollReveal direction="left">
           <div className="rounded-2xl overflow-hidden relative aspect-video">
             <Image
-              src="/images/community.jpg"
+              src="/images/worship10.jpeg"
               alt="Church community gathering"
               fill
               className="object-cover"

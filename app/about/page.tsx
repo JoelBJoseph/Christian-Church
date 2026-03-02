@@ -89,7 +89,7 @@ export default function AboutPage() {
           <ScrollReveal direction="right" delay={0.15}>
             <div className="rounded-2xl overflow-hidden relative aspect-square">
               <Image
-                  src="/images/pastors.jpg"
+                  src="/images/pastor2.jpeg"
                   alt="Senior Pastor"
                   fill
                   className="object-cover"
@@ -103,7 +103,7 @@ export default function AboutPage() {
           <ScrollReveal direction="left" className="order-2 md:order-1">
             <div className="rounded-2xl overflow-hidden relative aspect-square">
               <Image
-                  src="/images/youth-camp.jpg"
+                  src="/images/youth2.jpg"
                   alt="Church Worship Gathering"
                   fill
                   className="object-cover"

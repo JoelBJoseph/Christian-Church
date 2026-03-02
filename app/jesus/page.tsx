@@ -35,13 +35,13 @@ const faqs = [
 const ctaCards = [
   {
     href: "/events",
-    img: "/images/community.jpg",
+    img: "/images/worship10.jpeg",
     title: "Upcoming Events",
     cta: "WHATS ON",
   },
   {
     href: "/watch",
-    img: "/images/online-content.jpg",
+    img: "/images/music-team.jpg",
     title: "Online Content",
     cta: "WATCH NOW",
   },
@@ -118,14 +118,14 @@ export default function JesusPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {ctaCards.map((card, i) => (
               <ScrollReveal key={card.href} delay={i * 0.15} direction={i === 0 ? "left" : "right"}>
-                <Link href={card.href} className="group relative rounded-2xl overflow-hidden aspect-[4/3] block">
+                <Link href={card.href} className="group relative rounded-2xl overflow-hidden aspect-4/3 block">
                   <Image
                     src={card.img}
                     alt={card.title}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-foreground/70 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-t from-foreground/70 to-transparent" />
                   <div className="absolute bottom-6 left-6 right-6 text-background">
                     <p className="text-lg font-medium">{card.title}</p>
                     <p className="text-xs tracking-widest mt-1 inline-flex items-center gap-1">
