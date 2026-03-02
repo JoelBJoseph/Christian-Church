@@ -15,7 +15,7 @@ const cards = [
     cta: "LEARN MORE",
   },
   {
-    title: "Edifying events.",
+    title: "Church events.",
     desc: "Explore our events calendar for a wide variety of community activities.",
     link: "/events",
     cta: "EVENTS",
@@ -41,7 +41,7 @@ export default function HomePage() {
         >
           <Image
             src="/images/hero-church.jpg"
-            alt="Edify Church sanctuary"
+            alt="Christian Church sanctuary"
             fill
             className="object-cover"
             priority
@@ -59,7 +59,7 @@ export default function HomePage() {
               className="text-5xl md:text-7xl italic font-medium tracking-tight drop-shadow-lg"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              <span className="italic">Edify</span> Church
+              <span className="italic">Christian</span> Church
             </h1>
             <p className="mt-2 text-lg tracking-widest opacity-90">welcome home</p>
           </motion.div>
@@ -90,7 +90,7 @@ export default function HomePage() {
             all are welcome.
           </h2>
           <p className="text-muted-foreground leading-relaxed mb-6">
-            {"You're invited to a welcoming community where you can belong and find purpose. Whether you're exploring faith, seeking answers to life's big questions, or looking for a new community to grow and thrive, you're welcome at Edify Church."}
+            {"You're invited to a welcoming community where you can belong and find purpose. Whether you're exploring faith, seeking answers to life's big questions, or looking for a new community to grow and thrive, you're welcome at Christian Church."}
           </p>
           <Link
             href="/about"
@@ -106,8 +106,8 @@ export default function HomePage() {
         <section className="bg-secondary py-12">
           <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <p className="text-sm text-muted-foreground">
-              EDIFY CHURCH is a multi-generational church in Riverton, New Columbia since 1953. We strive to LOVE,
-              BUILD and Reach.
+              Christian CHURCH is a non-denominational ministry in Muttom, Thdoupuzha since 2000. We strive to LOVE,
+              BUILD and REACH.
             </p>
             <div className="text-right">
               <p
@@ -175,7 +175,7 @@ export default function HomePage() {
         ))}
       </section>
 
-      {/* See whats on */}
+      {/* See what's on */}
       <ScrollReveal>
         <section className="bg-secondary py-16">
           <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">

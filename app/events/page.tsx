@@ -29,10 +29,10 @@ export default function EventsPage() {
             className="text-4xl md:text-5xl mb-6"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            Events at Edify.
+            Events at Christian Church.
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Events at Edify are designed to bring our community together, deepen your faith, and celebrate life in
+            Events at our church are designed to bring our community together, deepen your faith, and celebrate life in
             Christ. Join us and be part of something truly meaningful.
           </p>
         </section>

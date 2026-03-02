@@ -15,6 +15,8 @@ export default function Footer() {
           <p className="text-sm text-muted-foreground">+91 94950 93427</p>
           <p className="text-sm text-muted-foreground">christianchurch@gmail.com</p>
           <p className="text-sm text-muted-foreground mt-2">
+            MICHAEL ANNA CHAMAKKALAYIL TOWNSHIP,
+            <br />
             SUPPLY CO. ROAD
             <br />
             MUTTOM, THODUPUZHA

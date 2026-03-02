@@ -28,7 +28,7 @@ const faqs = [
   },
   {
     q: "Where do I start?",
-    a: "Start by reading the Gospel of John in the Bible, visiting a church community like Edify, and talking to someone about your questions and journey of faith.",
+    a: "Start by reading the Gospel of John in the Bible, visiting a church community, and talking to someone about your questions and journey of faith.",
   },
 ]
 

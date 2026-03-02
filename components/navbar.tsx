@@ -36,7 +36,7 @@ export default function Navbar() {
               className="text-xl tracking-tight"
               style={{ fontFamily: "var(--font-heading)" }}
           >
-            <span className="italic font-medium">Edify</span>
+            <span className="italic font-medium">Christian</span>
             <span className="font-light"> Church</span>
           </Link>
 
