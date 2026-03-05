@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
       <ClerkProvider appearance={{
           theme: shadcn,
-      }} publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+      }}>
         <html lang="en" suppressHydrationWarning>
         <body
             className={`${inter.variable} ${dmSerif.variable} font-sans antialiased`}
