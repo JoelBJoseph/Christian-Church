@@ -1,8 +1,9 @@
+import {ClerkProvider} from "@clerk/nextjs";
+import { shadcn } from '@clerk/ui/themes'
 import type { Metadata, Viewport } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { DM_Serif_Display, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
-import { shadcn } from '@clerk/themes'
+import { syncUser } from "@/lib/sync-user";
 
 import "./globals.css";
 
@@ -23,23 +24,23 @@ export const viewport: Viewport = {
   themeColor: "#1a1a1a",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
                                      children,
                                    }: {
   children: React.ReactNode;
 }) {
+  await syncUser();
+  
   return (
-      <ClerkProvider appearance={{
-          theme: shadcn,
-      }}>
         <html lang="en" suppressHydrationWarning>
         <body
             className={`${inter.variable} ${dmSerif.variable} font-sans antialiased`}
         >
-        {children}
-        <Analytics />
+          <ClerkProvider appearance={{ theme: shadcn }}>
+            {children}
+            <Analytics />
+          </ClerkProvider>
         </body>
         </html>
-      </ClerkProvider>
   );
 }

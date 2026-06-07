@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model PrayerRequest {
+  id        Int      @id @default(autoincrement())
+  userId    String?
+  name      String
+  email     String?
+  prayer    String
+  isPrivate Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  role      Role     @default(USER)
+  isBanned  Boolean  @default(false)
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  date        String?
+  time        String?
+  location    String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+}
+
+model Photo {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  url         String
+  date        String?
+  category    String?
+  createdAt   DateTime @default(now())
+}
+
+model Video {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  url         String
+  date        String?
+  createdAt   DateTime @default(now())
+}
+
+enum Role {
+  USER
+  ADMIN
+}

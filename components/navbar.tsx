@@ -5,14 +5,8 @@ import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { Menu, X } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { SignInButton, SignUpButton, UserButton, Show } from '@clerk/nextjs'
 import { cn } from "@/lib/utils"
-
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  UserButton,
-} from "@clerk/nextjs"
 
 const navLinks = [
   { label: "PRAYER", href: "/prayer" },
@@ -56,21 +50,21 @@ export default function Navbar() {
                   {link.label}
                 </Link>
             ))}
-
-            {/* Clerk Auth - Desktop */}
-            <div className="flex items-center gap-4 ml-4">
-              <SignedOut>
-                <SignInButton mode="modal">
-                  <button className="bg-foreground text-background text-xs px-4 py-2 rounded-full tracking-widest font-medium hover:opacity-90 transition">
-                    SIGN IN
-                  </button>
-                </SignInButton>
-              </SignedOut>
-
-              <SignedIn>
-                <UserButton afterSignOutUrl="/" />
-              </SignedIn>
-            </div>
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="text-xs tracking-widest font-medium text-muted-foreground hover:text-foreground transition-colors">
+                  SIGN IN
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button className="bg-foreground text-background px-4 py-2 rounded-full text-[10px] tracking-widest font-bold hover:opacity-90 transition-opacity">
+                  SIGN UP
+                </button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
           </div>
 
           {/* Mobile Toggle */}
@@ -111,20 +105,25 @@ export default function Navbar() {
                         </Link>
                       </motion.div>
                   ))}
-
-                  {/* Clerk Auth - Mobile */}
-                  <div className="border-t border-border pt-4 flex flex-col gap-3">
-                    <SignedOut>
+                  <div className="pt-2 flex flex-col gap-4">
+                    <Show when="signed-out">
                       <SignInButton mode="modal">
-                        <button className="bg-foreground text-background text-sm px-4 py-2 rounded-full tracking-widest font-medium hover:opacity-90 transition">
+                        <button className="text-left text-sm tracking-widest font-medium text-muted-foreground hover:text-foreground transition-colors">
                           SIGN IN
                         </button>
                       </SignInButton>
-                    </SignedOut>
-
-                    <SignedIn>
-                      <UserButton afterSignOutUrl="/" />
-                    </SignedIn>
+                      <SignUpButton mode="modal">
+                        <button className="w-full bg-foreground text-background py-3 rounded-xl text-xs tracking-widest font-medium hover:opacity-90 transition-opacity text-center">
+                          SIGN UP
+                        </button>
+                      </SignUpButton>
+                    </Show>
+                    <Show when="signed-in">
+                      <div className="flex items-center gap-2">
+                        <UserButton />
+                        <span className="text-sm tracking-widest font-medium text-muted-foreground">MY ACCOUNT</span>
+                      </div>
+                    </Show>
                   </div>
                 </div>
               </motion.div>

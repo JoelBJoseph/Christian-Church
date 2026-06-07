@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import { Send, CheckCircle } from "lucide-react"
+import { Send, CheckCircle, AlertCircle } from "lucide-react"
 import SiteLayout from "@/components/site-layout"
 import ScrollReveal from "@/components/scroll-reveal"
 import PageHero from "@/components/page-hero"
+import { submitPrayerRequest } from "@/app/actions/prayer"
 
 export default function PrayerPage() {
   const [name, setName] = useState("")
@@ -13,14 +14,37 @@ export default function PrayerPage() {
   const [prayer, setPrayer] = useState("")
   const [isPrivate, setIsPrivate] = useState(true)
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim() || !prayer.trim()) return
-    setSubmitted(true)
-    setName("")
-    setEmail("")
-    setPrayer("")
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const result = await submitPrayerRequest({
+        name,
+        email,
+        prayer,
+        isPrivate
+      })
+
+      if (result.success) {
+        setSubmitted(true)
+        setName("")
+        setEmail("")
+        setPrayer("")
+      } else {
+        setError(result.error || "An unexpected error occurred.")
+      }
+    } catch {
+      setError("An unexpected error occurred. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -121,10 +145,11 @@ export default function PrayerPage() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => setIsPrivate(!isPrivate)}
                   className={`w-10 h-6 rounded-full transition-colors duration-300 relative ${
                     isPrivate ? "bg-accent" : "bg-border"
-                  }`}
+                  } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
                   role="switch"
                   aria-checked={isPrivate}
                   aria-label="Keep my prayer private"
@@ -138,11 +163,19 @@ export default function PrayerPage() {
                 <span className="text-sm text-muted-foreground">Keep my prayer private</span>
               </div>
 
+              {error && (
+                <div className="bg-destructive/10 text-destructive text-sm p-4 rounded-xl flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  {error}
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="w-full bg-foreground text-background py-4 rounded-xl text-xs tracking-widest font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                disabled={isSubmitting}
+                className="w-full bg-foreground text-background py-4 rounded-xl text-xs tracking-widest font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                SUBMIT PRAYER REQUEST <Send size={14} />
+                {isSubmitting ? "SUBMITTING..." : "SUBMIT PRAYER REQUEST"} <Send size={14} />
               </button>
             </form>
           )}
