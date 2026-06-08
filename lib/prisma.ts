@@ -4,11 +4,11 @@ const prismaClientSingleton = () => {
   if (process.env.NEXT_RUNTIME === 'edge') {
     return new PrismaClient();
   }
-  
-  // Dynamic imports to avoid loading Node.js modules in Edge runtime
-  // @ts-expect-error - require is allowed here for dynamic loading
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
   const { PrismaPg } = require('@prisma/adapter-pg')
-  // @ts-expect-error - require is allowed here for dynamic loading
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
   const pg = require('pg')
   
   const connectionString = process.env.DATABASE_URL
