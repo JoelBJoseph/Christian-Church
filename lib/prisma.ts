@@ -1,4 +1,4 @@
-import { PrismaClient } from "../generated/prisma";
+import { PrismaClient } from "@prisma/client";
 
 const prismaClientSingleton = () => {
   if (process.env.NEXT_RUNTIME === 'edge') {
@@ -6,17 +6,15 @@ const prismaClientSingleton = () => {
   }
   
   // Dynamic imports to avoid loading Node.js modules in Edge runtime
-  // @ts-ignore
+  // @ts-expect-error - require is allowed here for dynamic loading
   const { PrismaPg } = require('@prisma/adapter-pg')
-  // @ts-ignore
+  // @ts-expect-error - require is allowed here for dynamic loading
   const pg = require('pg')
   
   const connectionString = process.env.DATABASE_URL
   const pool = new pg.Pool({ 
     connectionString,
-    ssl: {
-      rejectUnauthorized: false
-    }
+    ssl: true
   })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter });

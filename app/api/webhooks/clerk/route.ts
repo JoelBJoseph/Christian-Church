@@ -80,6 +80,7 @@ export async function POST(req: Request) {
         email,
         name,
         role: finalRole,
+        isBanned: finalIsBanned
       },
       update: {
         email,
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
         }
       })
     } catch (metadataError) {
-      console.error('Error updating Clerk metadata:', metadataError)
+      console.error('[Clerk Webhook] Error updating metadata:', metadataError)
     }
     console.log(`User synced successfully: ${id}`)
   }
@@ -112,7 +113,7 @@ export async function POST(req: Request) {
       })
       console.log(`User deleted successfully: ${id}`)
     } catch (error) {
-      console.error(`Error deleting user ${id}:`, error)
+      console.error(`[Webhook] Error deleting user ${id}:`, error)
       // If user not found, that's fine
     }
   }

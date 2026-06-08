@@ -6,6 +6,8 @@ export async function syncUser() {
         const user = await currentUser()
         if (!user) return null
 
+        console.log(`[Sync] Syncing user: ${user.id} (${user.emailAddresses[0]?.emailAddress})`)
+
         const email = user.emailAddresses[0]?.emailAddress
         if (!email) return null
 
@@ -19,11 +21,17 @@ export async function syncUser() {
         if (existingUser) {
             // Update if needed (optional, but keeps things in sync)
             if (existingUser.email !== email || existingUser.name !== name) {
-                const updatedUser = await prisma.user.update({
+                await prisma.user.update({
                     where: { id: user.id },
                     data: { email, name }
                 })
-                // Also ensure Clerk metadata is synced even for existing users
+                return existingUser
+            }
+            // Still sync metadata for existing users just in case
+            const publicMetadata = user.publicMetadata as { role?: string, isBanned?: boolean } | undefined;
+            console.log(`[Sync] Existing user role in DB: ${existingUser.role}, role in Clerk: ${publicMetadata?.role}`)
+            
+            if (publicMetadata?.role !== existingUser.role || publicMetadata?.isBanned !== existingUser.isBanned) {
                 try {
                     const clerk = await import('@clerk/nextjs/server')
                     const client = await clerk.clerkClient()
@@ -33,20 +41,10 @@ export async function syncUser() {
                             isBanned: existingUser.isBanned
                         }
                     })
-                } catch (e) {}
-                return updatedUser
+                } catch (e) {
+                    console.error("[Sync] Failed to update Clerk metadata:", e);
+                }
             }
-            // Still sync metadata for existing users just in case
-            try {
-                const clerk = await import('@clerk/nextjs/server')
-                const client = await clerk.clerkClient()
-                await client.users.updateUserMetadata(user.id, {
-                    publicMetadata: {
-                        role: existingUser.role,
-                        isBanned: existingUser.isBanned
-                    }
-                })
-            } catch (e) {}
             return existingUser
         }
 
