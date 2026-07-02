@@ -8,7 +8,11 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks/clerk(.*)",
   "/favicon.ico",
   "/about(.*)",
-  "/jesus(.*)"
+  "/jesus(.*)",
+  "/events(.*)",
+  "/photos(.*)",
+  "/videos(.*)",
+  "/gallery(.*)"
 ]);
 const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
 
