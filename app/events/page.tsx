@@ -7,6 +7,8 @@ import SiteLayout from "@/components/site-layout"
 import ScrollReveal from "@/components/scroll-reveal"
 import PageHero from "@/components/page-hero"
 import { getEvents } from "@/app/actions/admin"
+import { formatEventDate, isPastEventDate } from "@/lib/dates"
+import { SafeImage } from "@/components/safe-image"
 
 type Tab = "upcoming" | "past"
 
@@ -32,15 +34,18 @@ export default function EventsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("upcoming")
   const [events, setEvents] = useState<EventItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
+      setError(null)
       try {
         const data = await getEvents()
         setEvents(data as EventItem[])
       } catch (error) {
         console.error("Failed to fetch events:", error)
+        setError("Events could not be loaded. Please try again.")
       } finally {
         setLoading(false)
       }
@@ -48,20 +53,10 @@ export default function EventsPage() {
     fetchData()
   }, [])
 
-  // Filter events (assuming for now that any event with a date in the past is past)
-  // Since date is a string, this is simplified. In a real app, we'd use Date objects.
-  const filteredEvents = events.filter(event => {
+  const filteredEvents = events.filter((event) => {
     if (!event.date) return activeTab === "upcoming"
-    
-    try {
-      const eventDate = new Date(event.date)
-      if (isNaN(eventDate.getTime())) return activeTab === "upcoming"
-      
-      const isPast = eventDate < new Date()
-      return activeTab === "past" ? isPast : !isPast
-    } catch {
-      return activeTab === "upcoming"
-    }
+    const past = isPastEventDate(event.date)
+    return activeTab === "past" ? past : !past
   })
 
   return (
@@ -115,6 +110,10 @@ export default function EventsPage() {
              <div className="text-center py-24">
                 <div className="inline-block w-8 h-8 border-4 border-foreground/20 border-t-foreground rounded-full animate-spin"></div>
              </div>
+          ) : error ? (
+            <div className="text-center py-24">
+              <p className="text-muted-foreground text-lg">{error}</p>
+            </div>
           ) : filteredEvents.length === 0 ? (
             <EmptyState label={activeTab} />
           ) : (
@@ -123,18 +122,19 @@ export default function EventsPage() {
                 <div key={event.id} className="group bg-secondary rounded-[2.5rem] overflow-hidden flex flex-col h-full border border-transparent hover:border-border transition-all duration-500">
                   {event.imageUrl && (
                     <div className="aspect-[16/9] relative overflow-hidden">
-                      <img 
-                        src={event.imageUrl} 
-                        alt={event.title} 
-                        className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
+                      <SafeImage
+                        src={event.imageUrl}
+                        alt={event.title}
+                        className="object-cover transition-transform duration-700 group-hover:scale-105"
+                        sizes="(max-width: 768px) 100vw, 50vw"
                       />
                     </div>
                   )}
                   <div className="p-8 flex flex-col flex-grow">
                     <div className="flex items-center gap-3 mb-4">
                       {event.date && (
-                        <span className="bg-foreground text-background text-[10px] tracking-widest font-bold px-3 py-1 rounded-full uppercase">
-                          {new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        <span className="bg-primary text-primary-foreground text-[10px] tracking-widest font-bold px-3 py-1 rounded-full uppercase">
+                          {formatEventDate(event.date, { month: "short", day: "numeric" })}
                         </span>
                       )}
                     </div>
@@ -153,7 +153,7 @@ export default function EventsPage() {
                       {event.date && (
                         <div className="flex items-center gap-3 text-xs text-muted-foreground uppercase tracking-wider">
                           <Calendar size={14} className="text-foreground/40" />
-                          <span>{new Date(event.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                          <span>{formatEventDate(event.date, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
                         </div>
                       )}
                       {event.time && (

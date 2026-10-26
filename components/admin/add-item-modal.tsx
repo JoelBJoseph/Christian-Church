@@ -6,7 +6,9 @@ interface AddItemModalProps {
     isOpen: boolean
     onClose: () => void
     activeTab: Tab
+    mode: "add" | "edit"
     onAdd: () => void
+    saving?: boolean
     formState: {
         title: string
         setTitle: (val: string) => void
@@ -28,11 +30,15 @@ interface AddItemModalProps {
     uploading: boolean
     uploadedFileUrl: string
     handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
+    error?: string | null
 }
 
 export function AddItemModal({ 
-    isOpen, onClose, activeTab, onAdd, formState, uploading, uploadedFileUrl, handleFileUpload 
+    isOpen, onClose, activeTab, mode, onAdd, saving = false, formState, uploading, uploadedFileUrl, handleFileUpload, error
 }: AddItemModalProps) {
+    const needsUrl = activeTab === "photos" || activeTab === "videos"
+    const singular = activeTab.slice(0, -1)
+    const missingRequired = !formState.title.trim() || (needsUrl && !formState.url.trim())
     if (!isOpen) return null
 
     return (
@@ -53,7 +59,7 @@ export function AddItemModal({
                 >
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
-                            Add {activeTab.slice(0, -1)}
+                            {mode === "edit" ? "Edit" : "Add"} {singular}
                         </h2>
                         <button
                             onClick={onClose}
@@ -98,11 +104,10 @@ export function AddItemModal({
                             </label>
                             <input
                                 id="add-date"
-                                type="text"
+                                type="date"
                                 value={formState.date}
                                 onChange={(e) => formState.setDate(e.target.value)}
                                 className="w-full bg-transparent border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-foreground"
-                                placeholder="e.g. 2026-03-20"
                             />
                         </div>
 
@@ -140,7 +145,7 @@ export function AddItemModal({
                         {(activeTab === "photos" || activeTab === "videos") && (
                             <div className="md:col-span-2">
                                 <label htmlFor="add-url" className="block text-xs tracking-widest font-bold mb-2 uppercase">
-                                    {activeTab === "photos" ? "PHOTO URL / UPLOAD" : "VIDEO URL (YOUTUBE)"}
+                                    {activeTab === "photos" ? "PHOTO URL / UPLOAD" : "VIDEO URL"}
                                 </label>
                                 <div className="flex gap-2">
                                     <div className="relative flex-1">
@@ -237,6 +242,10 @@ export function AddItemModal({
                         )}
                     </div>
 
+                    {error && (
+                        <p className="mt-6 text-sm text-destructive" role="alert">{error}</p>
+                    )}
+
                     <div className="flex gap-3 mt-10">
                         <button
                             onClick={onClose}
@@ -246,10 +255,10 @@ export function AddItemModal({
                         </button>
                         <button
                             onClick={onAdd}
-                            disabled={!formState.title.trim() || uploading}
-                            className="flex-1 px-6 py-4 rounded-xl text-xs tracking-widest font-bold bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50 uppercase"
+                            disabled={missingRequired || uploading || saving}
+                            className="flex-1 px-6 py-4 rounded-xl text-xs tracking-widest font-bold bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 uppercase"
                         >
-                            {uploading ? "UPLOADING..." : `ADD ${activeTab.slice(0, -1).toUpperCase()}`}
+                            {uploading ? "UPLOADING..." : saving ? "SAVING..." : mode === "edit" ? "SAVE CHANGES" : `ADD ${singular.toUpperCase()}`}
                         </button>
                     </div>
                 </motion.div>

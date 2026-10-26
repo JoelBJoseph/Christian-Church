@@ -1,57 +1,72 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
+import { NextResponse } from "next/server"
+import prisma from "@/lib/prisma"
+import { syncUser } from "@/lib/sync-user"
 
 const isPublicRoute = createRouteMatcher([
-  "/", 
-  "/sign-in(.*)", 
-  "/sign-up(.*)", 
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
   "/api/webhooks/clerk(.*)",
-  "/favicon.ico",
   "/about(.*)",
   "/jesus(.*)",
   "/events(.*)",
-  "/photos(.*)",
-  "/videos(.*)",
-  "/gallery(.*)"
-]);
-const isAdminRoute = createRouteMatcher(["/admin(.*)"]);
+  "/gallery(.*)",
+  "/prayer(.*)",
+  "/restricted(.*)",
+])
 
-export const proxyMiddleware = async (auth: any, request: any) => {
-  if (isPublicRoute(request)) {
-    return NextResponse.next();
-  }
-
-  const { userId, sessionClaims } = await auth();
-  
-  console.log(`[Proxy] Path: ${request.nextUrl.pathname}, UserID: ${userId}`);
-  
-  if (!userId) {
-    return (await auth()).redirectToSignIn();
-  }
-
-  const publicMetadata = sessionClaims?.metadata as { role?: string, isBanned?: boolean } | undefined;
-  const role = publicMetadata?.role;
-  const isBanned = publicMetadata?.isBanned;
-
-  console.log(`[Proxy] Role: ${role}, IsBanned: ${isBanned}`);
-
-  if (isBanned) {
-    return (await auth()).redirectToSignIn();
-  }
-
-  if (isAdminRoute(request)) {
-    if (role !== "ADMIN") {
-      console.log(`[Proxy] Access Denied for /admin: Role is ${role}`);
-      return NextResponse.redirect(new URL("/", request.url));
-    }
-  }
-
-  return NextResponse.next();
-};
+const isAdminRoute = createRouteMatcher(["/admin(.*)"])
 
 export default clerkMiddleware(async (auth, request) => {
-  return proxyMiddleware(auth, request);
-});
+  if (isPublicRoute(request)) {
+    return NextResponse.next()
+  }
+
+  const { userId, redirectToSignIn } = await auth()
+  const isApi = request.nextUrl.pathname.startsWith("/api/")
+
+  if (!userId) {
+    if (isApi) {
+      return NextResponse.json({ error: "You need to sign in." }, { status: 401 })
+    }
+    return redirectToSignIn()
+  }
+
+  try {
+    let user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, isBanned: true },
+    })
+
+    if (!user) {
+      await syncUser()
+      user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true, isBanned: true },
+      })
+    }
+
+    if (user?.isBanned) {
+      if (isApi) {
+        return NextResponse.json({ error: "This account is restricted." }, { status: 403 })
+      }
+      return NextResponse.redirect(new URL("/restricted", request.url))
+    }
+
+    if (isAdminRoute(request) && user?.role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/", request.url))
+    }
+  } catch (error) {
+    console.error("[Proxy] Failed to load user:", error)
+    if (isApi) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+    }
+    return NextResponse.redirect(new URL("/", request.url))
+  }
+
+  return NextResponse.next()
+})
 
 export const config = {
   matcher: [
@@ -59,4 +74,4 @@ export const config = {
     "/(api|trpc)(.*)",
     "/__clerk/:path*",
   ],
-};
+}

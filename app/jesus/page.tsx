@@ -37,10 +37,10 @@ const ctaCards = [
     href: "/events",
     img: "/images/worship10.jpeg",
     title: "Upcoming Events",
-    cta: "WHATS ON",
+    cta: "WHAT'S ON",
   },
   {
-    href: "/watch",
+    href: "/gallery",
     img: "/images/music-team.jpg",
     title: "Online Content",
     cta: "WATCH NOW",

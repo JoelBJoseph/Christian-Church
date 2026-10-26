@@ -29,7 +29,7 @@ export default function PrayerPage() {
         name,
         email,
         prayer,
-        isPrivate
+        isPrivate,
       })
 
       if (result.success) {
@@ -173,7 +173,7 @@ export default function PrayerPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-foreground text-background py-4 rounded-xl text-xs tracking-widest font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-primary text-primary-foreground py-4 rounded-xl text-xs tracking-widest font-medium flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? "SUBMITTING..." : "SUBMIT PRAYER REQUEST"} <Send size={14} />
               </button>

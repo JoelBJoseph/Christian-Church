@@ -1,11 +1,12 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
 import { Menu, X } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { SignInButton, SignUpButton, UserButton, Show } from '@clerk/nextjs'
+import { SignInButton, SignUpButton, UserButton, Show, useUser } from '@clerk/nextjs'
 import { cn } from "@/lib/utils"
 
 const navLinks = [
@@ -19,6 +20,8 @@ const navLinks = [
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const { user } = useUser()
+  const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "ADMIN"
 
   return (
       <nav className="fixed top-4 left-4 right-4 z-50" role="navigation" aria-label="Main navigation">
@@ -27,11 +30,21 @@ export default function Navbar() {
           {/* Logo */}
           <Link
               href="/"
-              className="text-xl tracking-tight"
+              className="flex items-center gap-2.5 min-w-0 text-xl tracking-tight"
               style={{ fontFamily: "var(--font-heading)" }}
           >
-            <span className="italic font-medium">Christian</span>
-            <span className="font-light"> Church</span>
+            <Image
+              src="/logo.png"
+              alt=""
+              width={447}
+              height={449}
+              className="h-10 w-10 shrink-0"
+              priority
+            />
+            <span className="truncate">
+              <span className="italic font-medium">Christian</span>
+              <span className="font-light"> Church</span>
+            </span>
           </Link>
 
           {/* Desktop Nav */}
@@ -57,12 +70,23 @@ export default function Navbar() {
                 </button>
               </SignInButton>
               <SignUpButton mode="modal">
-                <button className="bg-foreground text-background px-4 py-2 rounded-full text-[10px] tracking-widest font-bold hover:opacity-90 transition-opacity">
+                <button className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-[10px] tracking-widest font-bold hover:opacity-90 transition-opacity">
                   SIGN UP
                 </button>
               </SignUpButton>
             </Show>
             <Show when="signed-in">
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className={cn(
+                    "text-xs tracking-widest font-medium transition-colors duration-300 hover:text-foreground",
+                    pathname === "/admin" ? "text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  ADMIN
+                </Link>
+              )}
               <UserButton />
             </Show>
           </div>
@@ -113,12 +137,21 @@ export default function Navbar() {
                         </button>
                       </SignInButton>
                       <SignUpButton mode="modal">
-                        <button className="w-full bg-foreground text-background py-3 rounded-xl text-xs tracking-widest font-medium hover:opacity-90 transition-opacity text-center">
+                        <button className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-xs tracking-widest font-medium hover:opacity-90 transition-opacity text-center">
                           SIGN UP
                         </button>
                       </SignUpButton>
                     </Show>
                     <Show when="signed-in">
+                      {isAdmin && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setOpen(false)}
+                          className="text-sm tracking-widest font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          ADMIN
+                        </Link>
+                      )}
                       <div className="flex items-center gap-2">
                         <UserButton />
                         <span className="text-sm tracking-widest font-medium text-muted-foreground">MY ACCOUNT</span>

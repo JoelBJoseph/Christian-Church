@@ -79,12 +79,6 @@ export default function AboutPage() {
               equips believers to stand firm on the Word of God and walk in victory
               every day.
             </p>
-            <Link
-                href="#"
-                className="inline-flex items-center gap-2 text-xs tracking-widest font-medium hover:gap-3 transition-all"
-            >
-              LEARN MORE <ArrowRight size={12} />
-            </Link>
           </ScrollReveal>
           <ScrollReveal direction="right" delay={0.15}>
             <div className="rounded-2xl overflow-hidden relative aspect-square">
@@ -121,7 +115,7 @@ export default function AboutPage() {
               wholeness through the finished work of Calvary.
             </p>
             <Link
-                href="#"
+                href="/events"
                 className="inline-flex items-center gap-2 text-xs tracking-widest font-medium hover:gap-3 transition-all"
             >
               JOIN US <ArrowRight size={12} />

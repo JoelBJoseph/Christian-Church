@@ -1,31 +1,24 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
+import { Pool } from "pg"
 
-const prismaClientSingleton = () => {
-  if (process.env.NEXT_RUNTIME === 'edge') {
-    return new PrismaClient();
-  }
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { PrismaPg } = require('@prisma/adapter-pg')
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pg = require('pg')
-  
+function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL
-  const pool = new pg.Pool({ 
+  const isLocal = !connectionString || /localhost|127\.0\.0\.1/.test(connectionString)
+  const pool = new Pool({
     connectionString,
-    ssl: true
+    ssl: isLocal ? undefined : { rejectUnauthorized: false },
   })
-  const adapter = new PrismaPg(pool)
-  return new PrismaClient({ adapter });
-};
 
-declare global {
-  var prisma: undefined | ReturnType<typeof prismaClientSingleton>;
+  return new PrismaClient({ adapter: new PrismaPg(pool) })
 }
 
-const prisma = globalThis.prisma ?? prismaClientSingleton();
+declare global {
+  var prisma: undefined | ReturnType<typeof createPrismaClient>
+}
 
-export default prisma;
+const prisma = globalThis.prisma ?? createPrismaClient()
 
-if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;
+export default prisma
+
+if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma

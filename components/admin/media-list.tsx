@@ -1,15 +1,21 @@
 import { motion } from "framer-motion"
-import { Trash2, Tag, ImageIcon, Film } from "lucide-react"
+import { Trash2, Tag, ImageIcon, Film, Pencil } from "lucide-react"
 import { MediaItem } from "@/app/admin/types"
-import Image from "next/image"
+import { SafeImage } from "@/components/safe-image"
+import { toYouTubeEmbedUrl } from "@/lib/youtube"
+
+function isVideoFile(url: string) {
+    return /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url)
+}
 
 interface MediaListProps {
     items: MediaItem[]
     type: "photos" | "videos"
+    onEdit: (item: MediaItem) => void
     onDelete: (id: number) => void
 }
 
-export function MediaList({ items, type, onDelete }: MediaListProps) {
+export function MediaList({ items, type, onEdit, onDelete }: MediaListProps) {
     if (items.length === 0) {
         return (
             <motion.div
@@ -29,25 +35,35 @@ export function MediaList({ items, type, onDelete }: MediaListProps) {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {items.map((p) => (
+            {items.map((p) => {
+                const embedUrl = type === "videos" ? toYouTubeEmbedUrl(p.url) : null
+                return (
                 <div key={p.id} className="bg-secondary rounded-2xl overflow-hidden group border border-transparent hover:border-border transition-all">
                     <div className="aspect-[4/5] relative overflow-hidden bg-muted flex items-center justify-center">
                         {type === "photos" ? (
-                            <Image 
-                                src={p.url} 
-                                alt={p.title} 
-                                fill 
-                                className="object-cover" 
+                            <SafeImage
+                                src={p.url}
+                                alt={p.title}
+                                className="object-cover"
                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             />
                         ) : (
                              <div className="aspect-video relative bg-black/10 flex items-center justify-center overflow-hidden w-full h-full">
-                                {p.url.includes("youtube.com") || p.url.includes("youtu.be") ? (
-                                    <iframe 
-                                        src={p.url.replace("watch?v=", "embed/").replace("youtu.be/", "youtube.com/embed/")} 
+                                {embedUrl ? (
+                                    <iframe
+                                        src={embedUrl}
+                                        title={p.title}
                                         className="w-full h-full border-0 pointer-events-none"
                                         tabIndex={-1}
-                                    ></iframe>
+                                    />
+                                ) : isVideoFile(p.url) ? (
+                                    <video
+                                        src={p.url}
+                                        muted
+                                        playsInline
+                                        preload="metadata"
+                                        className="h-full w-full bg-black object-cover"
+                                    />
                                 ) : (
                                     <Film size={40} className="text-muted-foreground/20" />
                                 )}
@@ -58,7 +74,14 @@ export function MediaList({ items, type, onDelete }: MediaListProps) {
                                 </div>
                              </div>
                         )}
-                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-3 right-3 z-10 flex gap-2">
+                            <button
+                                onClick={() => onEdit(p)}
+                                className="bg-background/80 backdrop-blur-sm text-foreground p-2 rounded-full hover:bg-background transition-all shadow-lg"
+                                aria-label={`Edit ${p.title}`}
+                            >
+                                <Pencil size={16} />
+                            </button>
                             <button
                                 onClick={() => onDelete(p.id)}
                                 className="bg-background/80 backdrop-blur-sm text-destructive p-2 rounded-full hover:bg-destructive hover:text-white transition-all shadow-lg"
@@ -85,7 +108,8 @@ export function MediaList({ items, type, onDelete }: MediaListProps) {
                         </div>
                     </div>
                 </div>
-            ))}
+                )
+            })}
         </div>
     )
 }

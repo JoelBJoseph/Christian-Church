@@ -23,7 +23,7 @@ export function AdminTabs({ activeTab, setActiveTab }: AdminTabsProps) {
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs tracking-widest font-medium transition-colors whitespace-nowrap ${
                         activeTab === tab.id
-                            ? "bg-foreground text-background"
+                            ? "bg-primary text-primary-foreground"
                             : "bg-secondary text-muted-foreground hover:text-foreground"
                     }`}
                 >

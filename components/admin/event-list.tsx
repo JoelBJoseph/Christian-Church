@@ -1,14 +1,15 @@
 import { motion } from "framer-motion"
-import { Calendar, MapPin, Trash2 } from "lucide-react"
+import { Calendar, MapPin, Pencil, Trash2 } from "lucide-react"
 import { EventItem } from "@/app/admin/types"
-import Image from "next/image"
+import { SafeImage } from "@/components/safe-image"
 
 interface EventListProps {
     events: EventItem[]
+    onEdit: (event: EventItem) => void
     onDelete: (id: number) => void
 }
 
-export function EventList({ events, onDelete }: EventListProps) {
+export function EventList({ events, onEdit, onDelete }: EventListProps) {
     if (events.length === 0) {
         return (
             <motion.div
@@ -28,11 +29,10 @@ export function EventList({ events, onDelete }: EventListProps) {
                 <div key={e.id} className="bg-secondary rounded-2xl overflow-hidden flex flex-col group border border-transparent hover:border-border transition-all">
                     {e.imageUrl && (
                         <div className="aspect-video relative overflow-hidden">
-                            <Image 
-                                src={e.imageUrl} 
-                                alt={e.title} 
-                                fill 
-                                className="object-cover" 
+                            <SafeImage
+                                src={e.imageUrl}
+                                alt={e.title}
+                                className="object-cover"
                                 sizes="(max-width: 768px) 100vw, 50vw"
                             />
                         </div>
@@ -40,13 +40,22 @@ export function EventList({ events, onDelete }: EventListProps) {
                     <div className="p-6">
                         <div className="flex items-start justify-between mb-4">
                             <h3 className="font-bold text-lg leading-tight">{e.title}</h3>
-                            <button
-                                onClick={() => onDelete(e.id)}
-                                className="text-muted-foreground hover:text-destructive p-2 rounded-lg hover:bg-destructive/10 transition-all"
-                                aria-label="Delete event"
-                            >
-                                <Trash2 size={16} />
-                            </button>
+                            <div className="flex items-center">
+                                <button
+                                    onClick={() => onEdit(e)}
+                                    className="text-muted-foreground hover:text-foreground p-2 rounded-lg hover:bg-foreground/5 transition-all"
+                                    aria-label={`Edit ${e.title}`}
+                                >
+                                    <Pencil size={16} />
+                                </button>
+                                <button
+                                    onClick={() => onDelete(e.id)}
+                                    className="text-muted-foreground hover:text-destructive p-2 rounded-lg hover:bg-destructive/10 transition-all"
+                                    aria-label="Delete event"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
                         </div>
                         <div className="space-y-2">
                             {e.date && (

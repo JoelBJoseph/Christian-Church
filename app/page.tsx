@@ -106,7 +106,7 @@ export default function HomePage() {
         <section className="bg-secondary py-12">
           <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <p className="text-sm text-muted-foreground">
-              Christian CHURCH is a non-denominational ministry in Muttom, Thdoupuzha since 2000. We strive to LOVE,
+              Christian CHURCH is a non-denominational ministry in Muttom, Thodupuzha since 2000. We strive to LOVE,
               BUILD and REACH.
             </p>
             <div className="text-right">
@@ -183,11 +183,11 @@ export default function HomePage() {
               className="text-4xl md:text-5xl"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              {"See whats on."}
+              See what&apos;s on.
             </h2>
             <Link
               href="/events"
-              className="w-14 h-14 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-110 transition-transform duration-300"
+              className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-110 transition-transform duration-300"
               aria-label="View events"
             >
               <ArrowRight size={20} />

@@ -2,6 +2,7 @@ import { Webhook } from 'svix'
 import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
 import prisma from '@/lib/prisma'
+import { setUserPublicMetadata } from '@/lib/clerk'
 
 export async function POST(req: Request) {
   const SIGNING_SECRET = process.env.SIGNING_SECRET
@@ -49,38 +50,34 @@ export async function POST(req: Request) {
     })
   }
 
-  const { id } = evt.data
   const eventType = evt.type
-  console.log(`Webhook received: ${eventType} for user ${id}`)
 
   if (eventType === 'user.created' || eventType === 'user.updated') {
     const { id, email_addresses, first_name, last_name } = evt.data
-    const email = email_addresses[0].email_address
-    const name = `${first_name ?? ''} ${last_name ?? ''}`.trim()
+    const email = email_addresses?.[0]?.email_address
+    if (!id || !email) {
+      return new Response('Webhook received', { status: 200 })
+    }
 
-    console.log(`Syncing user in DB: ${id} (${email})`)
-    
-    // For user.created, we might want to set the role
-    // For user.updated, we probably don't want to overwrite it if it's already ADMIN
-    
-    const userCount = await prisma.user.count()
-    const role = userCount === 0 ? 'ADMIN' : 'USER'
-    
+    const name = `${first_name ?? ''} ${last_name ?? ''}`.trim()
+    const userId = id
+
     const existingUser = await prisma.user.findUnique({
-      where: { id: id as string }
+      where: { id: userId },
     })
 
-    const finalRole = existingUser?.role || role
-    const finalIsBanned = existingUser?.isBanned || false
+    const userCount = existingUser ? 1 : await prisma.user.count()
+    const role = existingUser?.role ?? (userCount === 0 ? 'ADMIN' : 'USER')
+    const isBanned = existingUser?.isBanned ?? false
 
     await prisma.user.upsert({
-      where: { id: id as string },
+      where: { id: userId },
       create: {
-        id: id as string,
+        id: userId,
         email,
         name,
-        role: finalRole,
-        isBanned: finalIsBanned
+        role,
+        isBanned,
       },
       update: {
         email,
@@ -88,33 +85,27 @@ export async function POST(req: Request) {
       },
     })
 
-    // Also sync to Clerk metadata for middleware access
     try {
-      const clerk = await import('@clerk/nextjs/server')
-      const client = await clerk.clerkClient()
-      await client.users.updateUserMetadata(id as string, {
-        publicMetadata: {
-          role: finalRole,
-          isBanned: finalIsBanned
-        }
-      })
+      await setUserPublicMetadata(userId, { role, isBanned })
     } catch (metadataError) {
       console.error('[Clerk Webhook] Error updating metadata:', metadataError)
     }
-    console.log(`User synced successfully: ${id}`)
   }
 
   if (eventType === 'user.deleted') {
     const { id } = evt.data
-    console.log(`Deleting user from DB: ${id}`)
-    try {
-      await prisma.user.delete({
-        where: { id: id as string },
-      })
-      console.log(`User deleted successfully: ${id}`)
-    } catch (error) {
-      console.error(`[Webhook] Error deleting user ${id}:`, error)
-      // If user not found, that's fine
+    if (id) {
+      try {
+        await prisma.user.delete({
+          where: { id },
+        })
+      } catch (error) {
+        const missing =
+          typeof error === 'object' && error !== null && 'code' in error && (error as { code: string }).code === 'P2025'
+        if (!missing) {
+          console.error(`[Webhook] Error deleting user ${id}:`, error)
+        }
+      }
     }
   }
 

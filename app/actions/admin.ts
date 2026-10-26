@@ -1,275 +1,408 @@
 "use server"
 
 import prisma from "@/lib/prisma"
-import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
+import { requireAdmin } from "@/lib/require-admin"
+import { deleteClerkUser, setUserPublicMetadata } from "@/lib/clerk"
+import { cleanMediaUrl, optionalText, requiredText, ValidationError } from "@/lib/text"
 
-/**
- * Shared authentication check for admin actions.
- * Ensures the user is logged in, has the ADMIN role, and is not banned.
- */
-async function isAdmin() {
-    try {
-        const { userId } = await auth()
-        console.log(`[Admin Action] Checking admin status for user: ${userId}`);
-        if (!userId) return false
-        
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            select: { role: true, isBanned: true }
-        })
-        
-        console.log(`[Admin Action] User role in DB: ${user?.role}, isBanned: ${user?.isBanned}`);
-        return user?.role === "ADMIN" && !user.isBanned
-    } catch (error) {
-        console.error("[Auth] Admin check failed:", error)
-        return false
-    }
+type ActionResult = { success: true } | { success: false; error: string }
+
+function failure(error: unknown, fallback: string): ActionResult {
+  if (error instanceof ValidationError) {
+    return { success: false, error: error.message }
+  }
+  console.error(fallback, error)
+  return { success: false, error: fallback }
 }
 
-// --- Events ---
+function denied(error: string): ActionResult {
+  return { success: false, error }
+}
+
+async function guardOwnAccount(actorId: string, targetId: string, change: {
+  role?: "ADMIN" | "USER"
+  isBanned?: boolean
+  deleted?: boolean
+}) {
+  if (actorId === targetId) {
+    throw new ValidationError("You can't change your own account.")
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: targetId },
+    select: { role: true },
+  })
+  if (!target) throw new ValidationError("User not found.")
+
+  const removesAdmin =
+    target.role === "ADMIN" && (change.deleted || change.isBanned === true || change.role === "USER")
+
+  if (removesAdmin) {
+    const otherAdmins = await prisma.user.count({
+      where: { role: "ADMIN", isBanned: false, NOT: { id: targetId } },
+    })
+    if (otherAdmins === 0) {
+      throw new ValidationError("Keep at least one active admin.")
+    }
+  }
+}
 
 export async function getEvents() {
-    try {
-        return await prisma.event.findMany({
-            orderBy: { createdAt: "desc" }
-        })
-    } catch (error) {
-        console.error("[Events] Failed to fetch events:", error)
-        throw new Error("Failed to load events")
-    }
+  try {
+    return await prisma.event.findMany({
+      orderBy: { createdAt: "desc" },
+    })
+  } catch (error) {
+    console.error("[Events] Failed to fetch events:", error)
+    throw new Error("Failed to load events")
+  }
 }
 
-export async function addEvent(data: { 
-    title: string; 
-    description?: string; 
-    date?: string; 
-    time?: string; 
-    location?: string; 
-    imageUrl?: string 
+function eventInput(data: {
+  title: string
+  description?: string
+  date?: string
+  time?: string
+  location?: string
+  imageUrl?: string
 }) {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
-    try {
-        const event = await prisma.event.create({ data })
-        revalidatePath("/admin")
-        revalidatePath("/events")
-        return event
-    } catch (error) {
-        console.error("[Events] Failed to add event:", error)
-        throw new Error("Failed to create event")
-    }
+  return {
+    title: requiredText(data.title, 200, "Title"),
+    description: optionalText(data.description, 5000, "Description"),
+    date: optionalText(data.date, 40, "Date"),
+    time: optionalText(data.time, 40, "Time"),
+    location: optionalText(data.location, 200, "Location"),
+    imageUrl: cleanMediaUrl(data.imageUrl),
+  }
 }
 
-export async function deleteEvent(id: number) {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
-    try {
-        await prisma.event.delete({ where: { id } })
-        revalidatePath("/admin")
-        revalidatePath("/events")
-    } catch (error) {
-        console.error("[Events] Failed to delete event:", error)
-        throw new Error("Failed to delete event")
-    }
+export async function addEvent(data: {
+  title: string
+  description?: string
+  date?: string
+  time?: string
+  location?: string
+  imageUrl?: string
+}): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await prisma.event.create({ data: eventInput(data) })
+    revalidatePath("/admin")
+    revalidatePath("/events")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to create event")
+  }
 }
 
-// --- Photos ---
+export async function updateEvent(id: number, data: {
+  title: string
+  description?: string
+  date?: string
+  time?: string
+  location?: string
+  imageUrl?: string
+}): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await prisma.event.update({ where: { id }, data: eventInput(data) })
+    revalidatePath("/admin")
+    revalidatePath("/events")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to update event")
+  }
+}
+
+export async function deleteEvent(id: number): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await prisma.event.delete({ where: { id } })
+    revalidatePath("/admin")
+    revalidatePath("/events")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to delete event")
+  }
+}
 
 export async function getPhotos() {
-    try {
-        return await prisma.photo.findMany({
-            orderBy: { createdAt: "desc" }
-        })
-    } catch (error) {
-        console.error("[Photos] Failed to fetch photos:", error)
-        throw new Error("Failed to load photos")
-    }
+  try {
+    return await prisma.photo.findMany({
+      orderBy: { createdAt: "desc" },
+    })
+  } catch (error) {
+    console.error("[Photos] Failed to fetch photos:", error)
+    throw new Error("Failed to load photos")
+  }
 }
 
-export async function addPhoto(data: { 
-    title: string; 
-    url: string; 
-    description?: string; 
-    date?: string; 
-    category?: string 
+function photoInput(data: {
+  title: string
+  url: string
+  description?: string
+  date?: string
+  category?: string
 }) {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
-    try {
-        const photo = await prisma.photo.create({ data })
-        revalidatePath("/admin")
-        revalidatePath("/gallery")
-        return photo
-    } catch (error) {
-        console.error("[Photos] Failed to add photo:", error)
-        throw new Error("Failed to create photo")
-    }
+  return {
+    title: requiredText(data.title, 200, "Title"),
+    url: cleanMediaUrl(data.url, true) ?? "",
+    description: optionalText(data.description, 5000, "Description"),
+    date: optionalText(data.date, 40, "Date"),
+    category: optionalText(data.category, 80, "Category"),
+  }
 }
 
-export async function deletePhoto(id: number) {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
-    try {
-        await prisma.photo.delete({ where: { id } })
-        revalidatePath("/admin")
-        revalidatePath("/gallery")
-    } catch (error) {
-        console.error("[Photos] Failed to delete photo:", error)
-        throw new Error("Failed to delete photo")
-    }
+export async function addPhoto(data: {
+  title: string
+  url: string
+  description?: string
+  date?: string
+  category?: string
+}): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await prisma.photo.create({ data: photoInput(data) })
+    revalidatePath("/admin")
+    revalidatePath("/gallery")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to create photo")
+  }
 }
 
-// --- Videos ---
+export async function updatePhoto(id: number, data: {
+  title: string
+  url: string
+  description?: string
+  date?: string
+  category?: string
+}): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await prisma.photo.update({ where: { id }, data: photoInput(data) })
+    revalidatePath("/admin")
+    revalidatePath("/gallery")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to update photo")
+  }
+}
+
+export async function deletePhoto(id: number): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await prisma.photo.delete({ where: { id } })
+    revalidatePath("/admin")
+    revalidatePath("/gallery")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to delete photo")
+  }
+}
 
 export async function getVideos() {
-    try {
-        return await prisma.video.findMany({
-            orderBy: { createdAt: "desc" }
-        })
-    } catch (error) {
-        console.error("[Videos] Failed to fetch videos:", error)
-        throw new Error("Failed to load videos")
-    }
+  try {
+    return await prisma.video.findMany({
+      orderBy: { createdAt: "desc" },
+    })
+  } catch (error) {
+    console.error("[Videos] Failed to fetch videos:", error)
+    throw new Error("Failed to load videos")
+  }
 }
 
-export async function addVideo(data: { 
-    title: string; 
-    url: string; 
-    description?: string; 
-    date?: string 
+function videoInput(data: {
+  title: string
+  url: string
+  description?: string
+  date?: string
 }) {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
-    try {
-        const video = await prisma.video.create({ data })
-        revalidatePath("/admin")
-        revalidatePath("/gallery")
-        return video
-    } catch (error) {
-        console.error("[Videos] Failed to add video:", error)
-        throw new Error("Failed to create video")
-    }
+  return {
+    title: requiredText(data.title, 200, "Title"),
+    url: cleanMediaUrl(data.url, true) ?? "",
+    description: optionalText(data.description, 5000, "Description"),
+    date: optionalText(data.date, 40, "Date"),
+  }
 }
 
-export async function deleteVideo(id: number) {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
-    try {
-        await prisma.video.delete({ where: { id } })
-        revalidatePath("/admin")
-        revalidatePath("/gallery")
-    } catch (error) {
-        console.error("[Videos] Failed to delete video:", error)
-        throw new Error("Failed to delete video")
-    }
+export async function addVideo(data: {
+  title: string
+  url: string
+  description?: string
+  date?: string
+}): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await prisma.video.create({ data: videoInput(data) })
+    revalidatePath("/admin")
+    revalidatePath("/gallery")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to create video")
+  }
 }
 
-// --- Prayers ---
+export async function updateVideo(id: number, data: {
+  title: string
+  url: string
+  description?: string
+  date?: string
+}): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await prisma.video.update({ where: { id }, data: videoInput(data) })
+    revalidatePath("/admin")
+    revalidatePath("/gallery")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to update video")
+  }
+}
+
+export async function deleteVideo(id: number): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await prisma.video.delete({ where: { id } })
+    revalidatePath("/admin")
+    revalidatePath("/gallery")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to delete video")
+  }
+}
 
 export async function getPrayers() {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    try {
-        return await prisma.prayerRequest.findMany({
-            orderBy: { createdAt: "desc" }
-        })
-    } catch (error) {
-        console.error("[Prayers] Failed to fetch prayers:", error)
-        throw new Error("Failed to load prayer requests")
-    }
+  const admin = await requireAdmin()
+  if (!admin.ok) throw new Error("Unauthorized")
+
+  try {
+    return await prisma.prayerRequest.findMany({
+      orderBy: { createdAt: "desc" },
+    })
+  } catch (error) {
+    console.error("[Prayers] Failed to fetch prayers:", error)
+    throw new Error("Failed to load prayer requests")
+  }
 }
 
-export async function deletePrayer(id: number) {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
-    try {
-        await prisma.prayerRequest.delete({ where: { id } })
-        revalidatePath("/admin")
-    } catch (error) {
-        console.error("[Prayers] Failed to delete prayer:", error)
-        throw new Error("Failed to delete prayer request")
-    }
-}
+export async function deletePrayer(id: number): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
 
-// --- Users ---
+  try {
+    await prisma.prayerRequest.delete({ where: { id } })
+    revalidatePath("/admin")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to delete prayer request")
+  }
+}
 
 export async function getUsers() {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    try {
-        return await prisma.user.findMany({
-            orderBy: { createdAt: "desc" }
-        })
-    } catch (error) {
-        console.error("[Users] Failed to fetch users:", error)
-        throw new Error("Failed to load users")
-    }
+  const admin = await requireAdmin()
+  if (!admin.ok) throw new Error("Unauthorized")
+
+  try {
+    return await prisma.user.findMany({
+      orderBy: { createdAt: "desc" },
+    })
+  } catch (error) {
+    console.error("[Users] Failed to fetch users:", error)
+    throw new Error("Failed to load users")
+  }
 }
 
-export async function updateUserRole(userId: string, role: "ADMIN" | "USER") {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
+export async function updateUserRole(userId: string, role: "ADMIN" | "USER"): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await guardOwnAccount(admin.userId, userId, { role })
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { role },
+    })
+
     try {
-        const updatedUser = await prisma.user.update({
-            where: { id: userId },
-            data: { role }
-        })
-
-        // Sync to Clerk metadata
-        try {
-            const clerk = await import('@clerk/nextjs/server')
-            const client = await clerk.clerkClient()
-            await client.users.updateUserMetadata(userId, {
-                publicMetadata: { role }
-            })
-        } catch (error) {
-            console.error(`[Clerk] Failed to update role for user ${userId}:`, error)
-        }
-
-        revalidatePath("/admin")
-        return updatedUser
+      await setUserPublicMetadata(userId, {
+        role: updatedUser.role,
+        isBanned: updatedUser.isBanned,
+      })
     } catch (error) {
-        console.error(`[Users] Failed to update role for user ${userId}:`, error)
-        throw new Error("Failed to update user role")
+      console.error(`[Clerk] Failed to update role for user ${userId}:`, error)
     }
+
+    revalidatePath("/admin")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to update user role")
+  }
 }
 
-export async function toggleBanUser(userId: string, isBanned: boolean) {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
+export async function toggleBanUser(userId: string, isBanned: boolean): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await guardOwnAccount(admin.userId, userId, { isBanned })
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { isBanned },
+    })
+
     try {
-        const updatedUser = await prisma.user.update({
-            where: { id: userId },
-            data: { isBanned }
-        })
-
-        // Sync to Clerk metadata
-        try {
-            const clerk = await import('@clerk/nextjs/server')
-            const client = await clerk.clerkClient()
-            await client.users.updateUserMetadata(userId, {
-                publicMetadata: { isBanned }
-            })
-        } catch (error) {
-            console.error(`[Clerk] Failed to toggle ban for user ${userId}:`, error)
-        }
-
-        revalidatePath("/admin")
-        return updatedUser
+      await setUserPublicMetadata(userId, {
+        role: updatedUser.role,
+        isBanned: updatedUser.isBanned,
+      })
     } catch (error) {
-        console.error(`[Users] Failed to toggle ban for user ${userId}:`, error)
-        throw new Error("Failed to update user status")
+      console.error(`[Clerk] Failed to toggle ban for user ${userId}:`, error)
     }
+
+    revalidatePath("/admin")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to update user status")
+  }
 }
 
-export async function deleteUser(userId: string) {
-    if (!await isAdmin()) throw new Error("Unauthorized")
-    
+export async function deleteUser(userId: string): Promise<ActionResult> {
+  const admin = await requireAdmin()
+  if (!admin.ok) return denied(admin.error)
+
+  try {
+    await guardOwnAccount(admin.userId, userId, { deleted: true })
+    await deleteClerkUser(userId)
     try {
-        // Note: This only deletes from our DB. Webhook handles Clerk deletions.
-        await prisma.user.delete({ where: { id: userId } })
-        revalidatePath("/admin")
+      await prisma.user.delete({ where: { id: userId } })
     } catch (error) {
-        console.error(`[Users] Failed to delete user ${userId}:`, error)
-        throw new Error("Failed to delete user")
+      const missing =
+        typeof error === "object" && error !== null && "code" in error && (error as { code: string }).code === "P2025"
+      if (!missing) throw error
     }
+    revalidatePath("/admin")
+    return { success: true }
+  } catch (error) {
+    return failure(error, "Failed to delete user")
+  }
 }

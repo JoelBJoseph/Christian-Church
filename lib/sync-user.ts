@@ -1,83 +1,68 @@
 import prisma from "@/lib/prisma"
 import { currentUser } from "@clerk/nextjs/server"
+import { setUserPublicMetadata } from "@/lib/clerk"
 
 export async function syncUser() {
-    try {
-        const user = await currentUser()
-        if (!user) return null
+  try {
+    const user = await currentUser()
+    if (!user) return null
 
-        console.log(`[Sync] Syncing user: ${user.id} (${user.emailAddresses[0]?.emailAddress})`)
+    const email = user.emailAddresses[0]?.emailAddress
+    if (!email) return null
 
-        const email = user.emailAddresses[0]?.emailAddress
-        if (!email) return null
+    const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
+    const existingUser = await prisma.user.findUnique({
+      where: { id: user.id },
+    })
 
-        const name = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
-
-        // Check if user exists
-        const existingUser = await prisma.user.findUnique({
-            where: { id: user.id }
-        })
-
-        if (existingUser) {
-            // Update if needed (optional, but keeps things in sync)
-            if (existingUser.email !== email || existingUser.name !== name) {
-                await prisma.user.update({
-                    where: { id: user.id },
-                    data: { email, name }
-                })
-                return existingUser
-            }
-            // Still sync metadata for existing users just in case
-            const publicMetadata = user.publicMetadata as { role?: string, isBanned?: boolean } | undefined;
-            console.log(`[Sync] Existing user role in DB: ${existingUser.role}, role in Clerk: ${publicMetadata?.role}`)
-            
-            if (publicMetadata?.role !== existingUser.role || publicMetadata?.isBanned !== existingUser.isBanned) {
-                try {
-                    const clerk = await import('@clerk/nextjs/server')
-                    const client = await clerk.clerkClient()
-                    await client.users.updateUserMetadata(user.id, {
-                        publicMetadata: {
-                            role: existingUser.role,
-                            isBanned: existingUser.isBanned
-                        }
-                    })
-                } catch (e) {
-                    console.error("[Sync] Failed to update Clerk metadata:", e);
-                }
-            }
-            return existingUser
-        }
-
-        // First user is ADMIN
-        const userCount = await prisma.user.count()
-        const role = userCount === 0 ? "ADMIN" : "USER"
-
-        const newUser = await prisma.user.create({
-            data: {
-                id: user.id,
-                email,
-                name,
-                role
-            }
-        })
-
-        // Sync to Clerk metadata
-        try {
-            const clerk = await import('@clerk/nextjs/server')
-            const client = await clerk.clerkClient()
-            await client.users.updateUserMetadata(user.id, {
-                publicMetadata: {
-                    role: role,
-                    isBanned: false
-                }
+    if (existingUser) {
+      const current =
+        existingUser.email !== email || existingUser.name !== name
+          ? await prisma.user.update({
+              where: { id: user.id },
+              data: { email, name },
             })
-        } catch (metadataError) {
-            console.error('Error updating Clerk metadata during sync:', metadataError)
-        }
+          : existingUser
 
-        return newUser
-    } catch (error) {
-        console.error("Error syncing user:", error)
-        return null
+      const publicMetadata = user.publicMetadata as { role?: string; isBanned?: boolean } | undefined
+      if (publicMetadata?.role !== current.role || publicMetadata?.isBanned !== current.isBanned) {
+        try {
+          await setUserPublicMetadata(user.id, {
+            role: current.role,
+            isBanned: current.isBanned,
+          })
+        } catch (error) {
+          console.error("[Sync] Failed to update Clerk metadata:", error)
+        }
+      }
+
+      return current
     }
+
+    const userCount = await prisma.user.count()
+    const role = userCount === 0 ? "ADMIN" : "USER"
+
+    const newUser = await prisma.user.create({
+      data: {
+        id: user.id,
+        email,
+        name,
+        role,
+      },
+    })
+
+    try {
+      await setUserPublicMetadata(user.id, {
+        role,
+        isBanned: false,
+      })
+    } catch (error) {
+      console.error("[Sync] Failed to update Clerk metadata:", error)
+    }
+
+    return newUser
+  } catch (error) {
+    console.error("Error syncing user:", error)
+    return null
+  }
 }

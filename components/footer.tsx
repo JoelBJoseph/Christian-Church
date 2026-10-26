@@ -1,6 +1,8 @@
 import Link from "next/link"
+import Image from "next/image"
 
 const footerLinks = [
+  { label: "PRAYER", href: "/prayer" },
   { label: "JESUS", href: "/jesus" },
   { label: "ABOUT US", href: "/about" },
   { label: "EVENTS", href: "/events" },
@@ -22,8 +24,11 @@ export default function Footer() {
             MUTTOM, THODUPUZHA
           </p>
           <p className="text-sm text-muted-foreground">KERALA - 685587</p>
-          <p className="mt-4 italic text-lg" style={{ fontFamily: "var(--font-heading)" }}>
-            <span className="italic">Christian</span> Church
+          <p className="mt-4 flex items-center gap-2 italic text-lg" style={{ fontFamily: "var(--font-heading)" }}>
+            <Image src="/logo.png" alt="" width={447} height={449} className="h-9 w-9" />
+            <span>
+              <span className="italic">Christian</span> Church
+            </span>
           </p>
         </div>
 
@@ -51,11 +56,11 @@ export default function Footer() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 pb-6 flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">{"© 2025 CHRISTIAN CHURCH"}</p>
+        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} CHRISTIAN CHURCH</p>
         <div className="flex gap-2" aria-hidden="true">
-          <span className="w-2 h-2 rounded-full bg-foreground" />
-          <span className="w-2 h-2 rounded-full bg-foreground" />
-          <span className="w-2 h-2 rounded-full bg-foreground" />
+          <span className="w-2 h-2 rounded-full bg-accent" />
+          <span className="w-2 h-2 rounded-full bg-accent" />
+          <span className="w-2 h-2 rounded-full bg-accent" />
         </div>
       </div>
     </footer>

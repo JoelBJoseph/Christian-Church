@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Plus, AlertCircle } from "lucide-react"
+import { useUser } from "@clerk/nextjs"
 import SiteLayout from "@/components/site-layout"
 import { 
-    getEvents, addEvent, deleteEvent, 
-    getPhotos, addPhoto, deletePhoto, 
-    getVideos, addVideo, deleteVideo, 
+    getEvents, addEvent, updateEvent, deleteEvent, 
+    getPhotos, addPhoto, updatePhoto, deletePhoto, 
+    getVideos, addVideo, updateVideo, deleteVideo, 
     getPrayers, deletePrayer,
     getUsers, updateUserRole, toggleBanUser, deleteUser
 } from "@/app/actions/admin"
@@ -20,8 +21,10 @@ import { EventList } from "@/components/admin/event-list"
 import { MediaList } from "@/components/admin/media-list"
 import { UserList } from "@/components/admin/user-list"
 import { AddItemModal } from "@/components/admin/add-item-modal"
+import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from "@/lib/uploads"
 
 export default function AdminPage() {
+    const { user } = useUser()
     const [activeTab, setActiveTab] = useState<Tab>("prayers")
     const [prayers, setPrayers] = useState<PrayerRequest[]>([])
     const [events, setEvents] = useState<EventItem[]>([])
@@ -30,7 +33,10 @@ export default function AdminPage() {
     const [users, setUsers] = useState<UserItem[]>([])
     const [loading, setLoading] = useState(true)
     const [showAddModal, setShowAddModal] = useState(false)
+    const [editingId, setEditingId] = useState<number | null>(null)
+    const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [formError, setFormError] = useState<string | null>(null)
 
     // Form state
     const [formTitle, setFormTitle] = useState("")
@@ -45,6 +51,8 @@ export default function AdminPage() {
     const [uploadedFileUrl, setUploadedFileUrl] = useState("")
 
     useEffect(() => {
+        setShowAddModal(false)
+        setEditingId(null)
         fetchData()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab])
@@ -82,7 +90,17 @@ export default function AdminPage() {
         const file = e.target.files?.[0]
         if (!file) return
 
+        if (!ALLOWED_IMAGE_TYPES[file.type]) {
+            setFormError("Use a JPEG, PNG, WebP, or GIF image.")
+            return
+        }
+        if (file.size > MAX_UPLOAD_BYTES) {
+            setFormError("Image must be 5MB or smaller.")
+            return
+        }
+
         setUploading(true)
+        setFormError(null)
         const formData = new FormData()
         formData.append("file", file)
 
@@ -92,13 +110,16 @@ export default function AdminPage() {
                 body: formData,
             })
             const data = await res.json()
-            if (data.url) {
-                setUploadedFileUrl(data.url)
-                setFormUrl(data.url)
-                if (activeTab === "events") setFormImageUrl(data.url)
+            if (!res.ok || !data.url) {
+                setFormError(typeof data.error === "string" ? data.error : "Upload failed.")
+                return
             }
+            setUploadedFileUrl(data.url)
+            setFormUrl(data.url)
+            if (activeTab === "events") setFormImageUrl(data.url)
         } catch (error) {
             console.error("Upload failed:", error)
+            setFormError("Upload failed.")
         } finally {
             setUploading(false)
         }
@@ -116,41 +137,116 @@ export default function AdminPage() {
         setUploadedFileUrl("")
     }
 
+    const closeModal = () => {
+        setFormError(null)
+        setShowAddModal(false)
+        setEditingId(null)
+        resetForm()
+    }
+
+    const dateValue = (value: string | null) =>
+        value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : ""
+
+    const openAdd = () => {
+        resetForm()
+        setEditingId(null)
+        setFormError(null)
+        setShowAddModal(true)
+    }
+
+    const openEdit = (item: EventItem | MediaItem) => {
+        resetForm()
+        setEditingId(item.id)
+        setFormError(null)
+        setFormTitle(item.title)
+        setFormDescription(item.description ?? "")
+        setFormDate(dateValue(item.date))
+        if ("time" in item) {
+            setFormTime(item.time ?? "")
+            setFormLocation(item.location ?? "")
+            setFormImageUrl(item.imageUrl ?? "")
+        }
+        if ("url" in item) {
+            setFormUrl(item.url)
+            setFormCategory(item.category ?? "")
+        }
+        setShowAddModal(true)
+    }
+
     const handleAdd = async () => {
         if (!formTitle.trim()) return
+        if ((activeTab === "photos" || activeTab === "videos") && !formUrl.trim()) {
+            setFormError("Add a URL or upload a file first.")
+            return
+        }
+
+        setFormError(null)
+        setSaving(true)
+        const id = editingId
 
         try {
-            if (activeTab === "events") {
-                await addEvent({ 
-                    title: formTitle, 
-                    description: formDescription,
-                    date: formDate, 
-                    time: formTime,
-                    location: formLocation,
-                    imageUrl: formImageUrl
-                })
-            } else if (activeTab === "photos") {
-                await addPhoto({ 
-                    title: formTitle, 
-                    url: formUrl, 
-                    description: formDescription,
-                    date: formDate,
-                    category: formCategory
-                })
-            } else if (activeTab === "videos") {
-                await addVideo({ 
-                    title: formTitle, 
-                    url: formUrl, 
-                    description: formDescription,
-                    date: formDate 
-                })
+            const result = activeTab === "events"
+                ? id !== null
+                    ? await updateEvent(id, {
+                        title: formTitle,
+                        description: formDescription,
+                        date: formDate,
+                        time: formTime,
+                        location: formLocation,
+                        imageUrl: formImageUrl
+                    })
+                    : await addEvent({
+                        title: formTitle,
+                        description: formDescription,
+                        date: formDate,
+                        time: formTime,
+                        location: formLocation,
+                        imageUrl: formImageUrl
+                    })
+                : activeTab === "photos"
+                ? id !== null
+                    ? await updatePhoto(id, {
+                        title: formTitle,
+                        url: formUrl,
+                        description: formDescription,
+                        date: formDate,
+                        category: formCategory
+                    })
+                    : await addPhoto({
+                        title: formTitle,
+                        url: formUrl,
+                        description: formDescription,
+                        date: formDate,
+                        category: formCategory
+                    })
+                : activeTab === "videos"
+                ? id !== null
+                    ? await updateVideo(id, {
+                        title: formTitle,
+                        url: formUrl,
+                        description: formDescription,
+                        date: formDate
+                    })
+                    : await addVideo({
+                        title: formTitle,
+                        url: formUrl,
+                        description: formDescription,
+                        date: formDate
+                    })
+                : null
+
+            if (!result?.success) {
+                setFormError(result?.error ?? "Failed to save item.")
+                return
             }
             
-            resetForm()
-            setShowAddModal(false)
+            closeModal()
             fetchData()
         } catch (error) {
-            console.error("Failed to add item:", error)
+            console.error("Failed to save item:", error)
+            setFormError("Failed to save item.")
+        } finally {
+            setSaving(false)
         }
     }
 
@@ -158,34 +254,54 @@ export default function AdminPage() {
         if (!confirm("Are you sure you want to delete this item?")) return
 
         try {
-            if (activeTab === "events") await deleteEvent(id as number)
-            else if (activeTab === "photos") await deletePhoto(id as number)
-            else if (activeTab === "videos") await deleteVideo(id as number)
-            else if (activeTab === "prayers") await deletePrayer(id as number)
-            else if (activeTab === "users") await deleteUser(id as string)
+            const result = activeTab === "events"
+                ? await deleteEvent(id as number)
+                : activeTab === "photos"
+                ? await deletePhoto(id as number)
+                : activeTab === "videos"
+                ? await deleteVideo(id as number)
+                : activeTab === "prayers"
+                ? await deletePrayer(id as number)
+                : await deleteUser(id as string)
+
+            if (!result.success) {
+                setError(result.error)
+                return
+            }
             
             fetchData()
         } catch (error) {
             console.error("Failed to delete item:", error)
+            setError("Failed to delete item.")
         }
     }
 
     const handleRoleChange = async (userId: string, currentRole: "ADMIN" | "USER") => {
         const newRole = currentRole === "ADMIN" ? "USER" : "ADMIN"
         try {
-            await updateUserRole(userId, newRole)
+            const result = await updateUserRole(userId, newRole)
+            if (!result.success) {
+                setError(result.error)
+                return
+            }
             fetchData()
         } catch (error) {
             console.error("Failed to update role:", error)
+            setError("Failed to update role.")
         }
     }
 
     const handleToggleBan = async (userId: string, currentBanStatus: boolean) => {
         try {
-            await toggleBanUser(userId, !currentBanStatus)
+            const result = await toggleBanUser(userId, !currentBanStatus)
+            if (!result.success) {
+                setError(result.error)
+                return
+            }
             fetchData()
         } catch (error) {
             console.error("Failed to toggle ban status:", error)
+            setError("Failed to update user status.")
         }
     }
 
@@ -212,8 +328,8 @@ export default function AdminPage() {
                 {canAdd && (
                     <div className="flex justify-end mb-6">
                         <button
-                            onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-2 bg-foreground text-background px-5 py-2.5 rounded-xl text-xs tracking-widest font-medium hover:opacity-90 transition-opacity"
+                            onClick={openAdd}
+                            className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-xs tracking-widest font-medium hover:opacity-90 transition-opacity"
                         >
                             <Plus size={14} /> ADD {activeTab.slice(0, -1).toUpperCase()}
                         </button>
@@ -234,12 +350,13 @@ export default function AdminPage() {
                             transition={{ duration: 0.3 }}
                         >
                             {activeTab === "prayers" && <PrayerList prayers={prayers} onDelete={handleDelete} />}
-                            {activeTab === "events" && <EventList events={events} onDelete={handleDelete} />}
-                            {activeTab === "photos" && <MediaList items={photos} type="photos" onDelete={handleDelete} />}
-                            {activeTab === "videos" && <MediaList items={videos} type="videos" onDelete={handleDelete} />}
+                            {activeTab === "events" && <EventList events={events} onEdit={openEdit} onDelete={handleDelete} />}
+                            {activeTab === "photos" && <MediaList items={photos} type="photos" onEdit={openEdit} onDelete={handleDelete} />}
+                            {activeTab === "videos" && <MediaList items={videos} type="videos" onEdit={openEdit} onDelete={handleDelete} />}
                             {activeTab === "users" && (
                                 <UserList 
-                                    users={users} 
+                                    users={users}
+                                    currentUserId={user?.id}
                                     onRoleChange={handleRoleChange} 
                                     onToggleBan={handleToggleBan} 
                                     onDelete={handleDelete} 
@@ -252,9 +369,12 @@ export default function AdminPage() {
 
             <AddItemModal 
                 isOpen={showAddModal}
-                onClose={() => setShowAddModal(false)}
+                onClose={closeModal}
+                error={formError}
                 activeTab={activeTab}
+                mode={editingId === null ? "add" : "edit"}
                 onAdd={handleAdd}
+                saving={saving}
                 formState={{
                     title: formTitle, setTitle: setFormTitle,
                     description: formDescription, setDescription: setFormDescription,
