@@ -44,6 +44,3 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
-
-# gallery media stays on the server; the database stores the file paths
-/public/images/gallery/
